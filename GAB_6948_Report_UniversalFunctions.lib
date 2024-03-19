@@ -1,0 +1,363 @@
+﻿Program.Sub.Preflight.Start
+Variable.Global.iReportID.Declare(Long,-1)
+Variable.Global.iBIRptID.Declare(Long,-1)
+Variable.Global.iBIRunID.Declare(Long,-1)
+Variable.Global.iBILogID.Declare(Long,-1)
+Variable.Global.bSentinel.Declare(Boolean,False)
+Variable.Global.sPrinter.Declare(String)
+Variable.Global.sUser.Declare(String)
+Variable.Global.sAdditionalSelect.Declare(String)
+Variable.Global.sAdditionalJoin.Declare(String)
+Variable.Global.sLabelTemplateFilename.Declare(String)
+Variable.Global.sLabelCustomFolder.Declare(String,"{0}\LABELS\CUSTOM\{1}")
+Variable.Global.sLabelDescription.Declare(String)
+Program.Sub.Preflight.End
+
+Program.Sub.InitializeExtendedData.Start
+F.Intrinsic.Control.Try
+
+	'Retrieving the user that called the program...
+	V.Global.sUser.Set(V.Caller.User.UCase)
+	V.Global.sUser.Set(V.Global.sUser.Trim)
+	
+	F.Intrinsic.Control.CallSub(LoadAdditionalParams)
+	F.Intrinsic.Control.CallSub(LoadAdditionalTables)
+	F.Intrinsic.Control.CallSub(Unload)
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catch_Report_UniversalFunctions) 
+F.Intrinsic.Control.EndTry
+Program.Sub.InitializeExtendedData.End
+
+Program.Sub.LoadAdditionalTables.Start
+F.Intrinsic.Control.Try
+
+	V.Local..BulkDeclareBoolean(bTableExists)
+	V.Local..BulkDeclareString(sScriptFile)
+	
+	F.Intrinsic.Control.If(V.Global.sAdditionalSelect.Trim,<>,"")
+		F.Intrinsic.Control.If(V.Global.sAdditionalJoin.Trim,<>,"")
+			F.Intrinsic.Control.ExitSub
+		F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.ExitSub
+	F.Intrinsic.Control.EndIf
+	
+	V.Global.sAdditionalSelect.Set("")
+	V.Global.sAdditionalJoin.Set("")
+	
+	F.Intrinsic.String.Split(V.Caller.ScriptFile.UCase,"\",V.Local.sScriptFile)
+	
+	'Table Alias Letters Used [' = Used]
+	'A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
+	'                ' ' ' ' ' '   ' ' ' ' ' '   ' ' ' '
+	
+	F.Intrinsic.Control.Try
+		'Inventory Master (*ALL* Inventory Master fields [MSTR/MST2/MST3])...
+		V.Global.sAdditionalSelect.Append(" ,'INVENTORY_MSTR' '*****TABLE_Z1',z1.* ")
+		V.Global.sAdditionalJoin.Append(" left outer join INVENTORY_MSTR z1 on a.part=z1.part and a.location=z1.location ")
+		V.Global.sAdditionalSelect.Append(" ,'INVENTORY_MST2' '*****TABLE_Z2',z2.* ")
+		V.Global.sAdditionalJoin.Append(" left outer join INVENTORY_MST2 z2 on a.part=z2.part and a.location=z2.location ")
+		V.Global.sAdditionalSelect.Append(" ,'INVENTORY_MST3' '*****TABLE_Z3',z3.* ")
+		V.Global.sAdditionalJoin.Append(" left outer join INVENTORY_MST3 z3 on a.part=z3.part and a.location=z3.location ")
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.UI.Msgbox("Problem preparing to pull in Inventory Master fields.","Error")
+	F.Intrinsic.Control.EndTry
+	
+	F.Intrinsic.Control.Try
+		'Inventory Long Part...
+		V.Global.sAdditionalSelect.Append(" ,'INV_LXR' '*****TABLE_X',IF(x.GSS_PART is null,substring(A.PART,0,17),x.DISPLAY_PART) AS DISPLAY_PART ")
+		V.Global.sAdditionalSelect.Append(" , IF(x.GSS_PART is null,substring(A.PART,18,3),x.DISPLAY_REV) AS DISPLAY_REV ")
+		V.Global.sAdditionalSelect.Append(" , IF(x.GSS_PART is null,A.PART,ltrim(rtrim(x.DISPLAY_PART))+' '+ltrim(rtrim(x.DISPLAY_REV))) AS DISPLAY_PARTREV ")
+		V.Global.sAdditionalJoin.Append(" left outer join INV_LXR x ON a.PART=x.GSS_PART ")
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.UI.Msgbox("Problem preparing to pull in Long Part fields.","Error")
+	F.Intrinsic.Control.EndTry
+		
+	F.Intrinsic.Control.Try
+		'If ARC 4912 (60 User Fields) is installed, adjust SQL accordingly to pull the extra UF's into the label
+		F.ODBC.Connection!con.TableExists("GAB_4912_USER_FIELDS",V.Local.bTableExists)
+		F.Intrinsic.Control.If(V.Local.bTableExists)
+			V.Global.sAdditionalSelect.Append(" ,'GAB_4912_USER_FIELDS' '*****TABLE_U', u.USER1 AS ARC4912_USER1, u.USER2 AS ARC4912_USER2, u.USER3 AS ARC4912_USER3, u.USER4 AS ARC4912_USER4, u.USER5 AS ARC4912_USER5, u.USER6 AS ARC4912_USER6, u.USER7 AS ARC4912_USER7, u.USER8 AS ARC4912_USER8, u.USER9 AS ARC4912_USER9, u.USER10 AS ARC4912_USER10, u.USER11 AS ARC4912_USER11, u.USER12 AS ARC4912_USER12, u.USER13 AS ARC4912_USER13, u.USER14 AS ARC4912_USER14, u.USER15 AS ARC4912_USER15, u.USER16 AS ARC4912_USER16, u.USER17 AS ARC4912_USER17, u.USER18 AS ARC4912_USER18, u.USER19 AS ARC4912_USER19, u.USER20 AS ARC4912_USER20, u.USER21 AS ARC4912_USER21, u.USER22 AS ARC4912_USER22, u.USER23 AS ARC4912_USER23, u.USER24 AS ARC4912_USER24, u.USER25 AS ARC4912_USER25, u.USER26 AS ARC4912_USER26, u.USER27 AS ARC4912_USER27, u.USER28 AS ARC4912_USER28, u.USER29 AS ARC4912_USER29, u.USER30 AS ARC4912_USER30 ")
+			V.Global.sAdditionalJoin.Append(" left outer join GAB_4912_USER_FIELDS u on A.PART=u.PART and a.location=u.LOCATION ")
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.UI.Msgbox("Problem preparing to pull in ARC 4912 User Fields.","Error")
+	F.Intrinsic.Control.EndTry
+	
+	F.Intrinsic.Control.Try
+		'If ARC 3591 (30 User Fields) is installed, adjust SQL accordingly to pull the extra UF's into the label
+		F.ODBC.Connection!con.TableExists("INV_EXTRA",V.Local.bTableExists)
+		F.Intrinsic.Control.If(V.Local.bTableExists)
+			V.Global.sAdditionalSelect.Append(" ,'INV_EXTRA' '*****TABLE_T', t.USER1 AS ARC3591_USER1, t.USER2 AS ARC3591_USER2, t.USER3 AS ARC3591_USER3, t.USER4 AS ARC3591_USER4, t.USER5 AS ARC3591_USER5, t.USER6 AS ARC3591_USER6, t.USER7 AS ARC3591_USER7, t.USER8 AS ARC3591_USER8, t.USER9 AS ARC3591_USER9, t.USER10 AS ARC3591_USER10, t.USER11 AS ARC3591_USER11, t.USER12 AS ARC3591_USER12, t.USER13 AS ARC3591_USER13, t.USER14 AS ARC3591_USER14, t.USER15 AS ARC3591_USER15, t.USER16 AS ARC3591_USER16, t.USER17 AS ARC3591_USER17, t.USER18 AS ARC3591_USER18, t.USER19 AS ARC3591_USER19, t.USER20 AS ARC3591_USER20, t.USER21 AS ARC3591_USER21, t.USER22 AS ARC3591_USER22, t.USER23 AS ARC3591_USER23, t.USER24 AS ARC3591_USER24, t.USER25 AS ARC3591_USER25, t.USER26 AS ARC3591_USER26, t.USER27 AS ARC3591_USER27, t.USER28 AS ARC3591_USER28, t.USER29 AS ARC3591_USER29, t.USER30 AS ARC3591_USER30 ")
+			V.Global.sAdditionalJoin.Append(" left outer join INV_EXTRA t on LEFT(A.PART,17)=t.PART and SUBSTRING(A.PART,18,3)=t.REV and a.location=t.LOCATION ")
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.UI.Msgbox("Problem preparing to pull in ARC 3591 User Fields.","Error")
+	F.Intrinsic.Control.EndTry
+	
+	F.Intrinsic.Control.Try
+		'INVENTORY XREF...
+		V.Global.sAdditionalSelect.Append(" ,'V_INV_CROSS_REF' '*****TABLE_S',s.* ")
+		V.Global.sAdditionalJoin.Append(" left outer join V_INV_CROSS_REF s on a.part=s.part and a.location=s.location and a.customer=s.customer ")
+		'UPC
+		V.Global.sAdditionalSelect.Append(" ,'V_INV_CROSS_REF' '*****TABLE_K',k.USER_DEFINED_PART as UPC ")
+		V.Global.sAdditionalJoin.Append(" left outer join V_INV_CROSS_REF K on a.part=k.part and a.location=k.location and k.customer='' and k.vendor='' and k.user_defined_part<>'' ")
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.UI.Msgbox("Problem preparing to pull in INVENTORY XREF fields.","Error")
+	F.Intrinsic.Control.EndTry
+	
+	F.Intrinsic.Control.Try
+		'JOB HEADER...
+		V.Global.sAdditionalSelect.Append(" ,'V_JOB_HEADER' '*****TABLE_R',r.* ")
+		V.Global.sAdditionalJoin.Append(" left outer join V_JOB_HEADER r on a.JOB=r.job and a.SUFFIX=r.SUFFIX ")
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.UI.Msgbox("Problem preparing to pull in JOB HEADER fields.","Error")
+	F.Intrinsic.Control.EndTry
+	
+	F.Intrinsic.Control.Try
+		'ORDER_TO_WO...
+		V.Global.sAdditionalSelect.Append(" ,'ORDER_TO_WO' '*****TABLE_J',j.* ")
+		V.Global.sAdditionalJoin.Append(" left outer join ORDER_TO_WO j ON a.JOB=j.JOB and a.SUFFIX=j.SUFFIX ")
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.UI.Msgbox("Problem preparing to pull in ORDER_TO_WO fields.","Error")
+	F.Intrinsic.Control.EndTry
+	
+	F.Intrinsic.Control.Try
+		'ORDER LINES...
+		V.Global.sAdditionalSelect.Append(" ,'V_ORDER_LINES' '*****TABLE_I',i.* ")
+		V.Global.sAdditionalJoin.Append(" left outer join V_ORDER_LINES i ON j.ORDER_NO=i.ORDER_NO and j.ORDER_LINE=i.RECORD_NO ")
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.UI.Msgbox("Problem preparing to pull in ORDER LINES fields.","Error")
+	F.Intrinsic.Control.EndTry
+	
+	F.Intrinsic.Control.Try
+		'ORDER HEADER...
+		V.Global.sAdditionalSelect.Append(" ,'V_ORDER_HEADER' '*****TABLE_h',h.* ")
+		V.Global.sAdditionalJoin.Append(" left outer join V_ORDER_HEADER h ON h.ORDER_NO=i.ORDER_NO ")
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.UI.Msgbox("Problem preparing to pull in ORDER HEADER fields.","Error")
+	F.Intrinsic.Control.EndTry
+	
+	F.Intrinsic.Control.Try
+		'Inventory Extra Text...
+		V.Global.sAdditionalSelect.Append(" ,'INV_EXTRA_TEXT' '*****TABLE_N', REPLACE(REPLACE(n.text,CHAR(10),' '),CHAR(13),'') EXTRATEXT ")
+		V.Global.sAdditionalJoin.Append(" left outer join INV_EXTRA_TEXT n ON a.part=n.part ")
+	F.Intrinsic.Control.Catch
+		F.Intrinsic.UI.Msgbox("Problem preparing to pull in Inventory Extra Text field.","Error")
+	F.Intrinsic.Control.EndTry
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catch_Report_UniversalFunctions) 
+F.Intrinsic.Control.EndTry
+Program.Sub.LoadAdditionalTables.End
+
+Program.Sub.LoadAdditionalParams.Start
+F.Intrinsic.Control.Try
+
+	V.Local..BulkDeclareString(sPassed,sItem,sName)
+	V.Local..BulkDeclareLong(i)
+	
+	F.Intrinsic.String.Split(V.Passed.DATA-GAB-4,"@!@",V.Local.sPassed)
+	F.Intrinsic.Control.For(V.Local.i,0,V.Local.sPassed.UBound,1)
+		F.Intrinsic.String.Split(V.Local.sPassed(V.Local.i),"##",V.Local.sItem)
+		
+		F.Intrinsic.Control.If(V.Local.sItem(0).Trim,<>,"")
+			'ReportID
+			F.Intrinsic.Control.If(V.Local.sItem(0).Ucase.Trim,=,"REPORTID")
+				V.Global.iReportID.Set(V.Local.sItem(1))
+				'Exiting because, so far, this is the only variable that we're aware that we need.
+				F.Intrinsic.Control.ExitFor(V.Local.i)
+			F.Intrinsic.Control.EndIf
+			
+		F.Intrinsic.Control.Else
+			'found an empty name in the set...  assume everything after this is empty, too.  Gotta love assumptions.
+			F.Intrinsic.Control.ExitFor(V.Local.i)
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Next(V.Local.i)
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catch_Report_UniversalFunctions) 
+F.Intrinsic.Control.EndTry
+Program.Sub.LoadAdditionalParams.End
+
+Program.Sub.GetLastPrinterSelection.Start
+F.Intrinsic.Control.Try
+
+	V.Local..BulkDeclareString(sSQL)
+	V.Local..BulkDeclareLong(iUserID)
+	
+	F.Global.Security.GetUserId(V.Caller.User,V.Caller.CompanyCode,V.Local.iUserID)
+	
+	F.Intrinsic.String.Build("select top 1 SVAL from GS_REGISTRY where USER_ID={0} and PROGRAM like 'GSSRL%' and COMPANY='{1}'",V.Local.iUserID,V.Caller.CompanyCode,V.Local.sSQL)
+	F.ODBC.Connection!conc.ExecuteAndReturn(V.Local.sSQL,V.Global.sPrinter)
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catch_Report_UniversalFunctions,"Sub",V.Ambient.CurrentSubroutine,"ErrorNo",V.Ambient.ErrorNumber,"ErrorDesc",V.Ambient.ErrorDescription) 
+F.Intrinsic.Control.EndTry
+Program.Sub.GetLastPrinterSelection.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.If(V.DataTable.dtDataDistinct.Exists)
+	F.Data.DataTable.Close("dtDataDistinct")
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.If(V.DataTable.dtData.Exists)
+	F.Data.DataTable.Close("dtData")
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catch_Report_UniversalFunctions) 
+F.Intrinsic.Control.EndTry
+Program.Sub.Unload.End
+
+Program.Sub.LoadDefaultReport.Start
+F.Intrinsic.Control.Try
+	
+	V.Local..BulkDeclareString(sSQL,sRet,sMsg)
+	
+	F.Intrinsic.Control.CallSub(InitReport)
+	
+	'Set a default report id...
+	F.Intrinsic.String.Build("select top 1 a.Report_Id, a.Description, c.Copies From BIR_USER a join BIR_ACTIVE_SEQ b on a.Report_Id = b.Report_ID join BIR_USER_SEQ c on a.Report_Id = c.Report_ID where b.Active = 1 and a.Description like '%{0}%' and a.Company = '{1}' order by a.Report_ID",V.Global.iARCId,V.Caller.CompanyCode,V.Local.sSql)
+	F.ODBC.Connection!conc.ExecuteAndReturn(V.Local.sSQL,V.Local.sRet)
+	F.Intrinsic.Control.If(V.Local.sRet.Trim,<>,"")
+		F.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+		Gui.frmMain.txtReportID.Text(V.Local.sRet(0).Trim)
+		Gui.frmMain.lblRptDesc.Text(V.Local.sRet(1).Trim)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Build("No report(s) found for this project in Report Maintenance. Please make sure that a report exists with ""{0}"" in the Report Description.",V.Global.iARCId,V.Local.sMsg)
+		F.Intrinsic.UI.Msgbox(V.Local.sMsg,"No Report Found.")
+	F.Intrinsic.Control.EndIf
+	
+	'Retrieve Stored Printer...
+	F.Intrinsic.Control.CallSub(RetrieveStoredPrinter)
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catch_Report_UniversalFunctions) 
+F.Intrinsic.Control.EndTry
+Program.Sub.LoadDefaultReport.End
+
+Program.Sub.InitReport.Start
+F.Intrinsic.Control.Try
+	
+	V.Local..BulkDeclareString(sReportPath,sReportDesc,sMsg)
+	V.Local..BulkDeclareBoolean(bExists)
+
+	'Initialize report
+	F.Intrinsic.String.Build("{0}\LABELS\Custom\GAB_{1}_MultipleWOLabel.lab",V.Caller.BusintDir,V.Global.iARCId,V.Local.sReportPath)
+	F.Intrinsic.String.Build("{0} Multiple Work Order Label",V.Global.iARCId,V.Local.sReportDesc)
+	
+	F.Intrinsic.File.Exists(V.Local.sReportPath,V.Local.bExists)
+	F.Intrinsic.Control.If(V.Local.bExists)
+		F.Global.BI.InitializeReport(V.Local.sReportDesc,V.Local.sReportPath,V.Global.iBIRptID)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Build("No report file found for this project. Please make sure that this report exists:\r\n{0}\r\n\r\With description:\r\n{1}",V.Local.sReportPath,V.Local.sReportDesc,V.Local.sMsg)
+		F.Intrinsic.UI.Msgbox(V.Local.sMsg,"No Report File Found.")
+	F.Intrinsic.Control.EndIf
+	
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catch_Report_UniversalFunctions)
+F.Intrinsic.Control.EndTry
+Program.Sub.InitReport.End
+
+Program.Sub.RetrieveStoredPrinter.Start
+F.Intrinsic.Control.Try
+	
+	V.Local..BulkDeclareString(sFileName,sSavedPrinter)
+	V.Local..BulkDeclareLong(iUser)
+
+	'Retrieve Last Printer Selection...
+	F.Global.Security.GetUserID(V.Caller.User,V.Caller.CompanyCode,V.Local.iUser)
+	F.Intrinsic.File.GetFileNameFromFQN(V.Caller.ScriptFile,V.Local.sFileName)
+	F.Intrinsic.String.Left(V.Local.sFileName.UCase,50,V.Local.sFileName)
+	F.Global.Registry.ReadValue(V.Local.iUser,V.Caller.CompanyCode,V.Local.sFileName,V.Global.iBIRptID,1000,5,"",V.Local.sSavedPrinter)
+	Gui.frmMain.ddlPrinter.Text(V.Local.sSavedPrinter)
+	
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catch_Report_UniversalFunctions)
+F.Intrinsic.Control.EndTry
+Program.Sub.RetrieveStoredPrinter.End
+
+Program.Sub.SaveSelectedPrinter.Start
+F.Intrinsic.Control.Try
+
+	V.Local..BulkDeclareString(sFileName)
+	V.Local..BulkDeclareLong(iUser)
+	
+	F.Intrinsic.Control.If(V.Screen.frmMain!ddlPrinter.Text,<>,"")
+		'Save selected printer to the registry so next time we can load it as the default selection...
+		F.Global.Security.GetUserID(V.Caller.User,V.Caller.CompanyCode,V.Local.iUser)
+		F.Intrinsic.File.GetFileNameFromFQN(V.Caller.ScriptFile,V.Local.sFileName)
+		F.Intrinsic.String.Left(V.Local.sFileName,50,V.Local.sFileName)
+		F.Global.Registry.AddValue(V.Local.iUser,V.Caller.CompanyCode,V.Local.sFileName,V.Global.iBIRptID,1000,False,V.Screen.frmMain!ddlPrinter.Text,False,0,-999.0,1/1/1980,12:00:00 AM)
+	F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catch_Report_UniversalFunctions)
+F.Intrinsic.Control.EndTry
+Program.Sub.SaveSelectedPrinter.End
+
+Program.Sub.LoadSentinelPrinters.Start
+F.Intrinsic.Control.Try
+	
+	V.Local..BulkDeclareString(sSql)
+	
+	'Load Sentinel Printers dropdownlist...
+	F.Intrinsic.String.Build("Select if(ltrim(rtrim(SENTINELALIAS))='',ltrim(rtrim(PRINTERNAME)),ltrim(rtrim(SENTINELALIAS))), if(ltrim(rtrim(SENTINELALIAS))='',ltrim(rtrim(PRINTERNAME)),ltrim(rtrim(SENTINELALIAS))) From Server_Printers Where Sentinelenabled = 1 Order by Sentinelalias","",V.Local.sSql)
+	F.Data.Dictionary.CreateFromSQL("PRINTER","conc",V.Local.sSql)
+	Gui.frmMain.ddlPrinter.AddItem("")
+	Gui.frmMain.ddlPrinter.AddItems("Dictionary","PRINTER")
+	F.Data.Dictionary.Close("Printer")
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catch_Report_UniversalFunctions)
+F.Intrinsic.Control.EndTry
+Program.Sub.LoadSentinelPrinters.End
+
+Program.Sub.cmdSelectReport_Click.Start
+F.Intrinsic.Control.Try
+	
+	V.Local..BulkDeclareString(sSql,sRet,sTitles,sWidths,sMsg)
+	
+	F.Intrinsic.UI.SetBrowserHotTypeAhead(True)
+	
+	F.Intrinsic.String.Split("Report ID*!*Description*!*Copies","*!*",V.Local.sTitles)
+	F.Intrinsic.String.Split("500*!*1800*!*300","*!*",V.Local.sWidths)
+	 
+	F.Intrinsic.String.Build("select distinct a.Report_Id, a.Description, c.Copies From BIR_USER a join BIR_ACTIVE_SEQ b on a.Report_Id = b.Report_ID join BIR_USER_SEQ c on a.Report_Id = c.Report_ID where b.Active = 1 and a.Description like '%{0}%' and a.Company = '{1}' order by a.Report_ID",V.Global.iARCId,V.Caller.CompanyCode,V.Local.sSql)
+	
+	F.Intrinsic.UI.Browser("Select Report ID:","conC",V.Local.sSql,V.Local.sTitles,V.Local.sWidths,6000,8000,V.Local.sRet)
+	
+	F.Intrinsic.Control.If(V.Local.sRet,<>,"***CANCEL***")
+		F.Intrinsic.Control.If(V.Local.sRet,<>,"")
+			F.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+			Gui.frmMain.txtReportID.Text(V.Local.sRet(0).Trim)
+			V.Global.iBIRptID.Set(V.Local.sRet(0).Trim)
+			Gui.frmMain.lblRptDesc.Text(V.Local.sRet(1).Trim)
+		F.Intrinsic.Control.Else
+			F.Intrinsic.String.Build("No report(s) found for this project. Please make sure that a report exists with ""{0}"" in the Report Description.",V.Global.iARCId,V.Local.sMsg)
+			F.Intrinsic.UI.Msgbox(V.Local.sMsg,"No Report Found.")
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+	
+	'Retrieve Stored Printer...
+	F.Intrinsic.Control.CallSub(RetrieveStoredPrinter)
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catch_Report_UniversalFunctions)
+F.Intrinsic.Control.EndTryc
+Program.Sub.cmdSelectReport_Click.End
+
+Program.Sub.Catch_Report_UniversalFunctions.Start
+	V.Local.sError.Declare(String)
+	F.Intrinsic.String.Build("PROJECT:{1}{0}{1}{1}SUBROUTINE:{1}{2}{1}{1}ERROR DESCRIPTION:{1}{3}{1}{1}ON LINE:{1}{4}",V.Caller.ScriptFile,V.Ambient.NewLine,V.Ambient.SubroutineCalledFrom,V.Ambient.ErrorDescription,V.Ambient.ErrorLine,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError,"Unhandled Exception")
+	'F.Intrinsic.Control.End
+Program.Sub.Catch_Report_UniversalFunctions.End
+
+Program.Sub.Comments.Start
+${$5$}$20.1.8769.31559$}$1
+${$6$}$jwithrow$}$20240123220834866$}$D95tSYIikIvF+oq+s87EtBQePACEH+Ey8MPwLdyO/VKsSeS84m3GZ+AdENnaAHw9KRf2+zSyaMnKHVkxENb5kw==
+Program.Sub.Comments.End
