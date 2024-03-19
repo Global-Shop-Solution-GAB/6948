@@ -1,0 +1,14 @@
+﻿Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Catching.Start
+	V.Local.sError.Declare(String)
+	F.Intrinsic.String.Build("PROJECT:{1}{0}{1}{1}SUBROUTINE:{1}{2}{1}{1}ERROR DESCRIPTION:{1}{3}{1}{1}ON LINE:{1}{4}",V.Caller.ScriptFile,V.Ambient.NewLine,V.Ambient.SubroutineCalledFrom,V.Ambient.ErrorDescription,V.Ambient.ErrorLine,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError,"Unhandled Exception")
+	'F.Intrinsic.Control.End
+Program.Sub.Catching.End
+
+Program.Sub.Comments.Start
+${$5$}$20.1.8753.27947$}$1
+${$6$}$jwithrow$}$20240110223817559$}$D95tSYIikIvF+oq+s87EtBQePACEH+Ey8MPwLdyO/VJe1I5n1fPzQRyhu8ljH6qcv09fZGek577uy88+q8tn2A==
+Program.Sub.Comments.End
