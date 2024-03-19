@@ -1,0 +1,125 @@
+﻿Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.DynamicallyRenameScriptButton.Start
+	
+	V.Local.sScriptFile.Declare(String)
+	V.Local.sSQL.Declare(String)
+	V.Local.i.Declare(Long)
+	V.Local.sCallerProgram.Declare(String)
+	V.Local.sScriptButton.Declare(String)
+	V.Local.sScriptButtonRename.Declare(String)
+	V.Local.sScriptButtonText.Declare(String)
+	V.Local.sScriptButtons.Declare(String)
+	V.Local.iStart.Declare(Long)
+	V.Local.sPassedCollection.Declare(String)
+	V.Local.bExists.Declare(Boolean)
+	
+	
+	'There's some HOOK.PROGRAM vs CALLER.CALLER discrepancies with the SFDC2.
+	F.Intrinsic.Control.SelectCase(V.Caller.Caller.UCase)
+		F.Intrinsic.Control.Case("GSS.SFDC.CLIENT")
+			V.Local.sCallerProgram.Set("SFDC2")
+		F.Intrinsic.Control.CaseElse
+			V.Local.sCallerProgram.Set(V.Caller.Caller.UCase)
+	F.Intrinsic.Control.EndSelect
+	
+	
+	F.Intrinsic.String.Split(V.Caller.ScriptFile,"\",V.Local.sScriptFile)
+	
+	
+	F.Intrinsic.Control.Try
+	
+		F.Intrinsic.String.Build("select TOP 1 UPPER(c.script_desc) as DESCRIPTION, a.UI_LABEL from HOOK_ASSOCIATION a left outer join HOOK_HEADER b ON a.ID=b.HOOK left outer join HOOK_GLOBAL c ON a.ID=c.ID where a.active_flag='A' and b.active_flag='A' and UPPER(c.HOOK_TYPE)='EXECUTE' and UPPER(script_name)=UPPER('{0}') and UPPER(c.program)='{1}' and UPPER(c.script_desc) like '%SCRIPT%'",V.Local.sScriptFile(V.Local.sScriptFile.UBound),V.Local.sCallerProgram,V.Local.sSQL)
+		
+		F.ODBC.Connection!ConBtnRename.OpenCompanyConnection
+		F.ODBC.Connection!ConBtnRename.ExecuteAndReturn(V.Local.sSQL,V.Local.sScriptButton)
+		F.ODBC.Connection!ConBtnRename.Close
+		
+		'Nothing found...  exit.
+		F.Intrinsic.Control.If(V.Local.sScriptButton.Trim,=,"")
+			F.Intrinsic.Control.ExitSub
+		F.Intrinsic.Control.EndIf
+		
+		F.Intrinsic.String.Split(V.Local.sScriptButton,"*!*",V.Local.sScriptButton)
+		
+	F.Intrinsic.Control.Catch
+		'Unhandled Exception
+		F.Intrinsic.Control.CallSub(Catch_DynamicallyRenameScriptButton)
+	F.Intrinsic.Control.EndTry
+	
+	
+	F.Intrinsic.Control.Try
+		
+		F.Intrinsic.Control.If(V.Local.sScriptButton(1).Trim,<>,"")
+			'If the NOTES field on the GAB Script > Notes has something in it, label the button with it.
+			V.Local.sScriptButtonText.Set(V.Local.sScriptButton(1))
+		F.Intrinsic.Control.Else
+			'Otherwise...  try to failover to a default title
+			F.Intrinsic.Variable.ArgExists("sScriptButtonText",V.Local.bExists)
+			F.Intrinsic.Control.If(V.Local.bExists)
+				V.Local.sScriptButtonText.Set(V.Args.sScriptButtonText)
+			F.Intrinsic.Control.Else
+				F.Intrinsic.UI.Msgbox("No script button text set or passed.","Error")
+				F.Intrinsic.Control.End
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.Catch
+		'unhandled exception
+		F.Intrinsic.Control.CallSub(Catch_DynamicallyRenameScriptButton)
+	F.Intrinsic.Control.EndTry
+	
+	
+	F.Intrinsic.Control.Try
+	
+		F.Intrinsic.String.Instr(V.Local.sScriptButton(0),"SCRIPT",0,V.Local.iStart)
+		F.Intrinsic.String.Mid(V.Local.sScriptButton,V.Local.iStart,8,V.Local.sScriptButtonRename)
+		F.Intrinsic.String.Replace(V.Local.sScriptButtonRename,"_"," ",V.Local.sScriptButtonRename)
+		F.Intrinsic.String.Replace(V.Local.sScriptButtonRename,"-"," ",V.Local.sScriptButtonRename)
+		
+		F.Intrinsic.Variable.ListCallerVars(V.Local.sPassedCollection)
+		F.Intrinsic.String.Split(V.Local.sPassedCollection,"*!*",V.Local.sPassedCollection)
+		
+		F.Intrinsic.Control.If(V.Local.sCallerProgram,=,"SFDC2")
+			
+			V.Local.sScriptButtons.Set(V.Passed.MainFormView-windowsUIButtonPanel-1)
+			F.Intrinsic.String.Replace(V.Local.sScriptButtons,V.Local.sScriptButtonRename,V.Local.sScriptButtonText,V.Local.sScriptButtons)
+			V.Passed.MainFormView-windowsUIButtonPanel-1.Set(V.Local.sScriptButtons)
+		
+		F.Intrinsic.Control.Else
+			
+			F.Intrinsic.Control.For(V.Local.i,0,V.Local.sPassedCollection.UBound,1)
+				
+				F.Intrinsic.String.Instr(V.Passed.[V.Local.sPassedCollection(V.Local.i)],"SCRIPT",0,V.Local.iStart)
+				F.Intrinsic.Control.If(V.Local.iStart,>,0)
+					
+					F.Intrinsic.Control.If(V.Passed.[V.Local.sPassedCollection(V.Local.i)].Right1,=,V.Local.sScriptButtonRename.Right1)
+						V.Passed.[V.Local.sPassedCollection(V.Local.i)].Set(V.Local.sScriptButtonText)
+						F.Intrinsic.Control.ExitFor(V.Local.i)
+					F.Intrinsic.Control.EndIf
+					
+				F.Intrinsic.Control.EndIf
+				
+			F.Intrinsic.Control.Next(V.Local.i)
+			
+		F.Intrinsic.Control.EndIf
+		
+	F.Intrinsic.Control.Catch
+		'Unhandled exception
+		F.Intrinsic.Control.CallSub(Catch_DynamicallyRenameScriptButton)
+	F.Intrinsic.Control.EndTry
+	
+Program.Sub.DynamicallyRenameScriptButton.End
+
+Program.Sub.Catch_DynamicallyRenameScriptButton.Start
+	V.Local.sError.Declare(String)
+	F.Intrinsic.String.Build("PROJECT:{1}{0}{1}{1}SUBROUTINE:{1}{2}{1}{1}ERROR DESCRIPTION:{1}{3}{1}{1}ON LINE:{1}{4}",V.Caller.ScriptFile,V.Ambient.NewLine,V.Ambient.SubroutineCalledFrom,V.Ambient.ErrorDescription,V.Ambient.ErrorLine,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError,"Unhandled Exception")
+	'F.Intrinsic.Control.End
+Program.Sub.Catch_DynamicallyRenameScriptButton.End
+
+Program.Sub.Comments.Start
+${$5$}$20.1.8753.27947$}$1
+${$6$}$jwithrow$}$20240112162239846$}$D95tSYIikIvF+oq+s87EtBQePACEH+Ey8MPwLdyO/VLJBYZTFz6N8tPFaAXK92PbDVW6yQyNHgEpxKGxOiynJA==
+Program.Sub.Comments.End
